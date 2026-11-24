@@ -7,6 +7,7 @@ import {
   Filter,
   Eye,
   Edit2,
+  Trash2,
   UserCheck,
   AlertTriangle,
   Scissors,
@@ -20,6 +21,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { getSupabaseClient } from '../../lib/supabase';
 import { Order, Employee, OrderStatus, OrderAssignment, OrderStatusHistory } from '../../lib/types';
+import { getOrderCategories } from '../../lib/categories';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
@@ -38,6 +40,7 @@ export const OrdersList: React.FC = () => {
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [orderTakerFilter, setOrderTakerFilter] = useState<string>('All');
   const [editorFilter, setEditorFilter] = useState<string>('All');
   const [startDateFilter, setStartDateFilter] = useState('');
@@ -50,6 +53,13 @@ export const OrdersList: React.FC = () => {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isReassignOpen, setIsReassignOpen] = useState(false);
 
+  // Delete Modals
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [isDeleteAllOpen, setIsDeleteAllOpen] = useState(false);
+  const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Edit / Status / Reassign forms
   const [newStatus, setNewStatus] = useState<OrderStatus>('Pending');
   const [statusReason, setStatusReason] = useState('');
@@ -57,6 +67,7 @@ export const OrdersList: React.FC = () => {
   const [reassignNotes, setReassignNotes] = useState('');
   const [editFormData, setEditFormData] = useState({
     projectName: '',
+    category: 'General',
     pcNumber: '',
     deliveryDate: '',
     notes: '',
@@ -245,6 +256,7 @@ export const OrdersList: React.FC = () => {
     }
     setEditFormData({
       projectName: order.project_name,
+      category: order.category || 'General',
       pcNumber: order.pc_number,
       deliveryDate: delivFormatted,
       notes: order.notes || '',
@@ -264,18 +276,36 @@ export const OrdersList: React.FC = () => {
     }
 
     try {
+      const updatePayload: any = {
+        project_name: editFormData.projectName.trim(),
+        category: editFormData.category || 'General',
+        pc_number: editFormData.pcNumber.trim(),
+        delivery_date: new Date(editFormData.deliveryDate).toISOString(),
+        notes: editFormData.notes.trim() || null,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error } = await client
         .from('orders')
-        .update({
-          project_name: editFormData.projectName.trim(),
-          pc_number: editFormData.pcNumber.trim(),
-          delivery_date: new Date(editFormData.deliveryDate).toISOString(),
-          notes: editFormData.notes.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', selectedOrder.id);
 
-      if (error) throw error;
+      if (error) {
+        if (
+          error.message?.toLowerCase().includes('category') ||
+          error.code === 'PGRST204' ||
+          error.message?.includes('schema cache')
+        ) {
+          delete updatePayload.category;
+          const { error: retryError } = await client
+            .from('orders')
+            .update(updatePayload)
+            .eq('id', selectedOrder.id);
+          if (retryError) throw retryError;
+        } else {
+          throw error;
+        }
+      }
 
       setIsEditOpen(false);
       await fetchOrdersAndEmployees();
@@ -286,16 +316,85 @@ export const OrdersList: React.FC = () => {
     }
   };
 
+  const openDeleteModal = (order: Order) => {
+    setOrderToDelete(order);
+    setIsDeleteOpen(true);
+  };
+
+  const handleDeleteSingleOrder = async () => {
+    if (!orderToDelete) return;
+    setIsDeleting(true);
+
+    const client = getSupabaseClient();
+    if (!client) {
+      setIsDeleting(false);
+      return;
+    }
+
+    try {
+      // 1. Delete associated records first to prevent foreign key errors
+      await client.from('order_mistakes').delete().eq('order_id', orderToDelete.id);
+      await client.from('order_status_history').delete().eq('order_id', orderToDelete.id);
+      await client.from('order_assignments').delete().eq('order_id', orderToDelete.id);
+
+      // 2. Delete the order itself
+      const { error } = await client.from('orders').delete().eq('id', orderToDelete.id);
+      if (error) throw error;
+
+      setIsDeleteOpen(false);
+      setOrderToDelete(null);
+      await fetchOrdersAndEmployees();
+    } catch (err: any) {
+      alert(`Error deleting order: ${err.message}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteAllOrders = async () => {
+    if (deleteAllConfirmText !== 'DELETE') return;
+    setIsDeleting(true);
+
+    const client = getSupabaseClient();
+    if (!client) {
+      setIsDeleting(false);
+      return;
+    }
+
+    try {
+      // 1. Clean up associated tables
+      await client.from('order_mistakes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await client.from('order_status_history').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await client.from('order_assignments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+      // 2. Delete all orders
+      const { error } = await client.from('orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+
+      setIsDeleteAllOpen(false);
+      setDeleteAllConfirmText('');
+      await fetchOrdersAndEmployees();
+    } catch (err: any) {
+      alert(`Error deleting all orders: ${err.message}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const categories = getOrderCategories();
+
   // Filter logic
   const filteredOrders = orders.filter((o) => {
     const matchesSearch =
       o.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.project_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.pc_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (o.category && o.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (o.order_taker?.name && o.order_taker.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (o.assigned_editor?.name && o.assigned_editor.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesStatus = statusFilter === 'All' || o.status === statusFilter;
+    const matchesCategory = categoryFilter === 'All' || (o.category || 'General') === categoryFilter;
     const matchesOT = orderTakerFilter === 'All' || o.order_taker_id === orderTakerFilter;
     const matchesEditor = editorFilter === 'All' || o.assigned_editor_id === editorFilter;
 
@@ -307,7 +406,7 @@ export const OrdersList: React.FC = () => {
       matchesDate = matchesDate && new Date(o.order_date) <= new Date(`${endDateFilter}T23:59:59`);
     }
 
-    return matchesSearch && matchesStatus && matchesOT && matchesEditor && matchesDate;
+    return matchesSearch && matchesStatus && matchesCategory && matchesOT && matchesEditor && matchesDate;
   });
 
   const columns: Column<Order>[] = [
@@ -348,9 +447,18 @@ export const OrdersList: React.FC = () => {
       key: 'project_name',
       header: 'Project Name',
       render: (row) => (
-        <div className="max-w-[200px] truncate font-medium text-fg-primary" title={row.project_name}>
+        <div className="max-w-[180px] truncate font-medium text-fg-primary" title={row.project_name}>
           {row.project_name}
         </div>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (row) => (
+        <span className="inline-flex items-center text-xs font-medium text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/40 px-2 py-0.5 rounded-md border border-brand-200 dark:border-brand-800/40">
+          {row.category || 'General'}
+        </span>
       ),
     },
     {
@@ -447,6 +555,14 @@ export const OrdersList: React.FC = () => {
             title="Edit Order"
             icon={<Edit2 className="w-4 h-4 text-fg-secondary" />}
           />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openDeleteModal(row)}
+            title="Delete Order"
+            className="text-status-danger hover:bg-status-danger/10 hover:text-status-danger"
+            icon={<Trash2 className="w-4 h-4" />}
+          />
         </div>
       ),
     },
@@ -465,7 +581,20 @@ export const OrdersList: React.FC = () => {
             Search, filter, track status transitions, and manage editor assignments.
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {orders.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteAllConfirmText('');
+                setIsDeleteAllOpen(true);
+              }}
+              className="text-status-danger border-status-danger/30 hover:bg-status-danger/10 hover:border-status-danger"
+              icon={<Trash2 className="w-4 h-4 text-status-danger" />}
+            >
+              Delete All Orders
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => navigate('/orders/bulk-import')}
@@ -485,12 +614,21 @@ export const OrdersList: React.FC = () => {
 
       {/* Advanced Filter Toolbar */}
       <div className="p-4 rounded-xl bg-bg-surface border border-border shadow-card space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <Input
             placeholder="Search Order ID, Project, PC..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             leftIcon={<Search className="w-4 h-4" />}
+          />
+
+          <Select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            options={[
+              { value: 'All', label: 'All Categories' },
+              ...categories.map((c) => ({ value: c, label: c })),
+            ]}
           />
 
           <Select
@@ -624,12 +762,22 @@ export const OrdersList: React.FC = () => {
               </div>
             </div>
 
-            {/* Project Details */}
-            <div className="space-y-2">
-              <span className="text-fg-muted block font-medium">Project Name:</span>
-              <p className="text-sm font-semibold text-fg-primary bg-bg-surface p-3 rounded-lg border border-border">
-                {selectedOrder.project_name}
-              </p>
+            {/* Project Details & Category */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <span className="text-fg-muted block text-xs font-medium">Project Name:</span>
+                <p className="text-sm font-semibold text-fg-primary bg-bg-surface p-2.5 rounded-lg border border-border">
+                  {selectedOrder.project_name}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-fg-muted block text-xs font-medium">Order Category:</span>
+                <div className="p-2.5 rounded-lg border border-border bg-bg-surface flex items-center">
+                  <span className="text-xs font-semibold text-brand-600 dark:text-brand-400 bg-brand-500/10 px-2.5 py-1 rounded-md">
+                    {selectedOrder.category || 'General'}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -794,12 +942,21 @@ export const OrdersList: React.FC = () => {
         maxWidth="lg"
       >
         <form onSubmit={handleEditOrder} className="space-y-4">
-          <Input
-            label="Project Name"
-            required
-            value={editFormData.projectName}
-            onChange={(e) => setEditFormData({ ...editFormData, projectName: e.target.value })}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Project Name"
+              required
+              value={editFormData.projectName}
+              onChange={(e) => setEditFormData({ ...editFormData, projectName: e.target.value })}
+            />
+
+            <Select
+              label="Order Category"
+              value={editFormData.category}
+              onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+              options={categories.map((c) => ({ value: c, label: c }))}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -833,6 +990,119 @@ export const OrdersList: React.FC = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* DELETE SINGLE ORDER MODAL */}
+      <Modal
+        isOpen={isDeleteOpen}
+        onClose={() => {
+          setIsDeleteOpen(false);
+          setOrderToDelete(null);
+        }}
+        title="Delete Order"
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-status-danger/10 border border-status-danger/20 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-status-danger shrink-0 mt-0.5" />
+            <div className="text-xs text-status-danger space-y-1">
+              <p className="font-semibold text-sm">Are you sure you want to delete this order?</p>
+              <p>
+                Order ID: <span className="font-mono font-bold">{orderToDelete?.order_number}</span>
+              </p>
+              <p>
+                Project: <span className="font-medium">{orderToDelete?.project_name}</span>
+              </p>
+              <p className="text-fg-secondary">
+                This action is permanent and will delete associated mistakes, editor assignments, and status logs.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => {
+                setIsDeleteOpen(false);
+                setOrderToDelete(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="bg-status-danger hover:bg-status-danger/90 text-white border-transparent"
+              onClick={handleDeleteSingleOrder}
+              isLoading={isDeleting}
+            >
+              Delete Order
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* DELETE ALL ORDERS MODAL */}
+      <Modal
+        isOpen={isDeleteAllOpen}
+        onClose={() => {
+          setIsDeleteAllOpen(false);
+          setDeleteAllConfirmText('');
+        }}
+        title="Delete All Orders"
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-status-danger/10 border border-status-danger/20 flex items-start gap-3">
+            <AlertTriangle className="w-6 h-6 text-status-danger shrink-0 mt-0.5" />
+            <div className="text-xs text-status-danger space-y-1.5">
+              <p className="font-bold text-sm text-status-danger">CRITICAL: Delete All Orders</p>
+              <p>
+                You are about to permanently delete <strong>ALL {orders.length} orders</strong> in the system.
+                All assignment histories, status logs, and mistake tracking records will be completely removed.
+              </p>
+              <p className="font-semibold text-fg-primary">
+                This action CANNOT be undone.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-fg-primary">
+              Please type <span className="font-mono font-bold text-status-danger">DELETE</span> to confirm:
+            </label>
+            <Input
+              value={deleteAllConfirmText}
+              onChange={(e) => setDeleteAllConfirmText(e.target.value)}
+              placeholder="Type DELETE"
+              className="font-mono"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => {
+                setIsDeleteAllOpen(false);
+                setDeleteAllConfirmText('');
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="bg-status-danger hover:bg-status-danger/90 text-white border-transparent"
+              disabled={deleteAllConfirmText !== 'DELETE' || isDeleting}
+              onClick={handleDeleteAllOrders}
+              isLoading={isDeleting}
+            >
+              Confirm Delete All Orders
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

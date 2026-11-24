@@ -49,6 +49,7 @@ export interface Order {
   pc_number: string;
   delivery_date: string;
   status: OrderStatus;
+  category?: string | null;
   assigned_editor_id?: string | null;
   completed_at?: string | null;
   notes?: string | null;
@@ -94,6 +95,7 @@ export interface Payment {
   payment_date: string;
   amount: number;
   payment_mode: PaymentMode;
+  category?: string | null;
   reference_number?: string | null;
   notes?: string | null;
   created_at: string;

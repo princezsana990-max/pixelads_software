@@ -14,6 +14,7 @@ import {
 import { format } from 'date-fns';
 import { getSupabaseClient } from '../../lib/supabase';
 import { Employee, MistakeCategory, OrderStatus } from '../../lib/types';
+import { getOrderCategories, addOrderCategory } from '../../lib/categories';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
@@ -58,6 +59,12 @@ export const AddOrder: React.FC = () => {
   const [assignedEditorId, setAssignedEditorId] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Order Categories
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('Video Editing');
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+
   // Mistakes array
   const [mistakes, setMistakes] = useState<MistakeEntry[]>([]);
 
@@ -76,6 +83,11 @@ export const AddOrder: React.FC = () => {
     setOrderDateTime(nowFormatted);
     setDeliveryDateTime(tomorrowFormatted);
 
+    // Load order categories
+    const initialCats = getOrderCategories();
+    setCategories(initialCats);
+    if (initialCats.length > 0) setSelectedCategory(initialCats[0]);
+
     // Generate Order ID preview
     const randPart = Math.floor(1000 + Math.random() * 9000);
     const year = now.getFullYear();
@@ -83,6 +95,20 @@ export const AddOrder: React.FC = () => {
 
     fetchDropdownData();
   }, []);
+
+  const handleAddNewCategory = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = newCategoryInput.trim();
+    if (!trimmed) {
+      setIsAddingNewCategory(false);
+      return;
+    }
+    const updated = addOrderCategory(trimmed);
+    setCategories(updated);
+    setSelectedCategory(trimmed);
+    setNewCategoryInput('');
+    setIsAddingNewCategory(false);
+  };
 
   const fetchDropdownData = async () => {
     const client = getSupabaseClient();
@@ -180,26 +206,54 @@ export const AddOrder: React.FC = () => {
 
     try {
       // 1. Insert Order
-      const { data: newOrder, error: orderError } = await client
+      const basePayload: any = {
+        order_number: orderNumber.trim(),
+        order_taker_id: orderTakerId,
+        order_date: new Date(orderDateTime).toISOString(),
+        project_name: projectName.trim(),
+        category: selectedCategory.trim() || 'General',
+        pc_number: pcNumber.trim(),
+        delivery_date: new Date(deliveryDateTime).toISOString(),
+        status,
+        assigned_editor_id: assignedEditorId || null,
+        completed_at: status === 'Completed' ? new Date().toISOString() : null,
+        notes: notes.trim() || null,
+      };
+
+      let newOrder: any = null;
+      const { data: insertedOrder, error: orderError } = await client
         .from('orders')
-        .insert([
-          {
-            order_number: orderNumber.trim(),
-            order_taker_id: orderTakerId,
-            order_date: new Date(orderDateTime).toISOString(),
-            project_name: projectName.trim(),
-            pc_number: pcNumber.trim(),
-            delivery_date: new Date(deliveryDateTime).toISOString(),
-            status,
-            assigned_editor_id: assignedEditorId || null,
-            completed_at: status === 'Completed' ? new Date().toISOString() : null,
-            notes: notes.trim() || null,
-          },
-        ])
+        .insert([basePayload])
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        // If the 'category' column does not exist in remote Supabase schema yet, fallback gracefully
+        if (
+          orderError.message?.toLowerCase().includes('category') ||
+          orderError.code === 'PGRST204' ||
+          orderError.message?.includes('schema cache')
+        ) {
+          const fallbackNotes = notes.trim()
+            ? `[Category: ${selectedCategory.trim()}] ${notes.trim()}`
+            : `[Category: ${selectedCategory.trim()}]`;
+          delete basePayload.category;
+          basePayload.notes = fallbackNotes;
+
+          const { data: retryOrder, error: retryError } = await client
+            .from('orders')
+            .insert([basePayload])
+            .select()
+            .single();
+
+          if (retryError) throw retryError;
+          newOrder = retryOrder;
+        } else {
+          throw orderError;
+        }
+      } else {
+        newOrder = insertedOrder;
+      }
 
       // 2. Insert initial status history
       await client.from('order_status_history').insert([
@@ -321,7 +375,7 @@ export const AddOrder: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Input
                 label="Project Name"
                 required
@@ -329,6 +383,40 @@ export const AddOrder: React.FC = () => {
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
               />
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-fg-primary tracking-wide">
+                    Order Category <span className="text-status-danger ml-0.5">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingNewCategory(true);
+                      setNewCategoryInput('');
+                    }}
+                    className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" /> Add New
+                  </button>
+                </div>
+                <Select
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    if (e.target.value === '__ADD_NEW__') {
+                      setIsAddingNewCategory(true);
+                      setNewCategoryInput('');
+                    } else {
+                      setSelectedCategory(e.target.value);
+                    }
+                  }}
+                  options={[
+                    ...categories.map((c) => ({ value: c, label: c })),
+                    { value: '__ADD_NEW__', label: '+ Add New Category...' },
+                  ]}
+                  helperText="Select or add custom category"
+                />
+              </div>
 
               <Input
                 label="PC Number / Workstation"
@@ -338,6 +426,47 @@ export const AddOrder: React.FC = () => {
                 onChange={(e) => setPcNumber(e.target.value)}
               />
             </div>
+
+            {isAddingNewCategory && (
+              <div className="p-3.5 bg-brand-500/5 border border-brand-500/20 rounded-xl space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-brand-600 dark:text-brand-400 flex items-center gap-1.5">
+                    <Plus className="w-3.5 h-3.5" /> Add New Order Category
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNewCategory(false)}
+                    className="text-fg-muted hover:text-fg-primary text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Enter category name (e.g. Reels Editing, 2D Animation)..."
+                    value={newCategoryInput}
+                    onChange={(e) => setNewCategoryInput(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddNewCategory();
+                      } else if (e.key === 'Escape') {
+                        setIsAddingNewCategory(false);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleAddNewCategory()}
+                    disabled={!newCategoryInput.trim()}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Input
