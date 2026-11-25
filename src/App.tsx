@@ -12,11 +12,13 @@ import { OrdersList } from './pages/orders/OrdersList';
 import { AddOrder } from './pages/orders/AddOrder';
 import { BulkImport } from './pages/orders/BulkImport';
 import { PaymentsList } from './pages/finance/PaymentsList';
+import { BulkImportPayments } from './pages/finance/BulkImportPayments';
 import { InvoiceGenerator } from './pages/finance/InvoiceGenerator';
 import { InvoiceHistory } from './pages/finance/InvoiceHistory';
 import { DailyAttendance } from './pages/attendance/DailyAttendance';
 import { MonthlyAttendance } from './pages/attendance/MonthlyAttendance';
 import { AttendanceReports } from './pages/attendance/AttendanceReports';
+import { BulkImportAttendance } from './pages/attendance/BulkImportAttendance';
 import { MainAnalytics } from './pages/analytics/MainAnalytics';
 import { OrderTakerSummary } from './pages/analytics/OrderTakerSummary';
 import { EditorSummary } from './pages/analytics/EditorSummary';
@@ -52,6 +54,7 @@ export const App: React.FC = () => {
 
         {/* Finance */}
         <Route path="/finance/payments" element={<PaymentsList />} />
+        <Route path="/finance/payments/bulk-import" element={<BulkImportPayments />} />
         <Route path="/finance/invoices" element={<InvoiceHistory />} />
         <Route path="/finance/invoices/new" element={<InvoiceGenerator />} />
 
@@ -59,6 +62,7 @@ export const App: React.FC = () => {
         <Route path="/attendance/daily" element={<DailyAttendance />} />
         <Route path="/attendance/monthly" element={<MonthlyAttendance />} />
         <Route path="/attendance/reports" element={<AttendanceReports />} />
+        <Route path="/attendance/bulk-import" element={<BulkImportAttendance />} />
 
         {/* Analytics & Reports */}
         <Route path="/analytics" element={<MainAnalytics />} />

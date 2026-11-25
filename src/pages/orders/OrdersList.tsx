@@ -29,6 +29,7 @@ import { Badge } from '../../components/ui/Badge';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { Modal } from '../../components/ui/Modal';
 import { Textarea } from '../../components/ui/Textarea';
+import { PageViewDropdown } from '../../components/layout/PageViewDropdown';
 
 export const OrdersList: React.FC = () => {
   const navigate = useNavigate();
@@ -582,6 +583,14 @@ export const OrdersList: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          <PageViewDropdown
+            title="Orders View"
+            options={[
+              { label: '📦 All Orders', path: '/orders' },
+              { label: '➕ Add Order', path: '/orders/add' },
+              { label: '📥 Bulk Import Orders', path: '/orders/bulk-import' },
+            ]}
+          />
           {orders.length > 0 && (
             <Button
               variant="outline"

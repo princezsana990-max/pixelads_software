@@ -10,6 +10,8 @@ import {
   Calendar,
   CheckCircle2,
   AlertCircle,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useDateRange, PresetRange } from '../../context/DateRangeContext';
@@ -17,7 +19,10 @@ import { useSupabase } from '../../context/SupabaseContext';
 import { useCompanySettings } from '../../context/CompanySettingsContext';
 import { Button } from '../ui/Button';
 
-export const TopNavbar: React.FC<{ onMenuToggle: () => void }> = ({ onMenuToggle }) => {
+export const TopNavbar: React.FC<{
+  onMenuToggle: () => void;
+  isSidebarCollapsed?: boolean;
+}> = ({ onMenuToggle, isSidebarCollapsed = false }) => {
   const { theme, toggleTheme } = useTheme();
   const { dateRange, setPreset } = useDateRange();
   const { isConnected, isChecking } = useSupabase();
@@ -35,14 +40,22 @@ export const TopNavbar: React.FC<{ onMenuToggle: () => void }> = ({ onMenuToggle
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-bg-surface/90 backdrop-blur-md border-b border-border flex items-center justify-between px-4 sm:px-6 transition-colors">
-      {/* Left side: Hamburger on mobile & Timezone Pill */}
+      {/* Left side: Sidebar Toggle (Mobile & Desktop) & Timezone */}
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuToggle}
-          className="p-2 rounded-lg text-fg-secondary hover:text-fg-primary hover:bg-bg-secondary lg:hidden"
+          className="p-2 rounded-lg text-fg-secondary hover:text-fg-primary hover:bg-bg-secondary transition-all flex items-center gap-2 border border-border/50 hover:border-brand-500/40"
+          title={isSidebarCollapsed ? 'Unhide Sidebar' : 'Hide Sidebar'}
           aria-label="Toggle navigation menu"
         >
-          <Menu className="w-5 h-5" />
+          {isSidebarCollapsed ? (
+            <PanelLeft className="w-5 h-5 text-brand-500" />
+          ) : (
+            <PanelLeftClose className="w-5 h-5" />
+          )}
+          <span className="hidden md:inline text-xs font-medium text-fg-secondary">
+            {isSidebarCollapsed ? 'Show Menu' : 'Hide Menu'}
+          </span>
         </button>
 
         {/* Timezone Indicator */}
@@ -60,8 +73,8 @@ export const TopNavbar: React.FC<{ onMenuToggle: () => void }> = ({ onMenuToggle
           <select
             value={dateRange.preset}
             onChange={(e) => setPreset(e.target.value as PresetRange)}
-            className="bg-transparent text-xs font-medium text-fg-primary focus:outline-none cursor-pointer pr-1"
-            aria-label="Date range filter"
+            className="bg-transparent text-fg-primary font-medium focus:outline-none cursor-pointer"
+            aria-label="Date Range Preset"
           >
             {presets.map((p) => (
               <option key={p} value={p}>
@@ -71,28 +84,41 @@ export const TopNavbar: React.FC<{ onMenuToggle: () => void }> = ({ onMenuToggle
           </select>
         </div>
 
-        {/* Supabase Connection Status Pill */}
-        <Link
-          to="/settings/backup"
-          className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
-            isConnected
-              ? 'bg-status-success/10 text-status-success border-status-success/20 hover:bg-status-success/20'
-              : 'bg-status-warning/10 text-status-warning border-status-warning/20 hover:bg-status-warning/20'
+        {/* Database Connection Status Badge */}
+        <div
+          className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+            isChecking
+              ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+              : isConnected
+              ? 'bg-status-success/10 border-status-success/20 text-status-success'
+              : 'bg-status-danger/10 border-status-danger/20 text-status-danger'
           }`}
-          title={isConnected ? 'Connected to Supabase PostgreSQL' : 'Supabase Setup Required'}
+          title={
+            isChecking
+              ? 'Checking connection...'
+              : isConnected
+              ? 'Supabase PostgreSQL Connected'
+              : 'Database Connection Lost'
+          }
         >
-          <Database className="w-3.5 h-3.5" />
-          <span>{isConnected ? 'PostgreSQL Active' : 'Setup Required'}</span>
-        </Link>
+          {isChecking ? (
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+          ) : isConnected ? (
+            <CheckCircle2 className="w-3.5 h-3.5" />
+          ) : (
+            <AlertCircle className="w-3.5 h-3.5" />
+          )}
+          <span>{isChecking ? 'Checking...' : isConnected ? 'DB Live' : 'Offline'}</span>
+        </div>
 
-        {/* Theme Toggle Button */}
+        {/* Dark/Light Mode Toggle */}
         <button
           onClick={toggleTheme}
           className="p-2 rounded-lg text-fg-secondary hover:text-fg-primary hover:bg-bg-secondary transition-colors"
-          aria-label={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} theme`}
-          title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} theme`}
+          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+          aria-label="Toggle theme"
         >
-          {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
         </button>
 
         {/* Quick Add Order CTA */}
@@ -101,9 +127,9 @@ export const TopNavbar: React.FC<{ onMenuToggle: () => void }> = ({ onMenuToggle
           size="sm"
           onClick={() => navigate('/orders/add')}
           icon={<Plus className="w-4 h-4" />}
-          className="shadow-sm"
+          className="hidden sm:inline-flex shadow-sm"
         >
-          <span className="hidden sm:inline">Add Order</span>
+          New Order
         </Button>
       </div>
     </header>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   CalendarCheck,
   Calendar,
@@ -9,6 +10,8 @@ import {
   Check,
   X,
   RefreshCw,
+  Edit2,
+  Upload,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getSupabaseClient } from '../../lib/supabase';
@@ -18,8 +21,12 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { DataTable, Column } from '../../components/ui/DataTable';
+import { Modal } from '../../components/ui/Modal';
+import { Textarea } from '../../components/ui/Textarea';
+import { PageViewDropdown } from '../../components/layout/PageViewDropdown';
 
 export const DailyAttendance: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<Attendance[]>([]);
@@ -28,6 +35,14 @@ export const DailyAttendance: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
+
+  // Edit Attendance Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editEmployeeId, setEditEmployeeId] = useState('');
+  const [editDate, setEditDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [editIsPresent, setEditIsPresent] = useState(true);
+  const [editNotes, setEditNotes] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const fetchData = async (dateStr: string) => {
     setIsLoading(true);
@@ -139,6 +154,50 @@ export const DailyAttendance: React.FC = () => {
     }
   };
 
+  const openEditModal = (employee: Employee) => {
+    const existing = attendanceRecords.find((r) => r.employee_id === employee.id);
+    setEditEmployeeId(employee.id);
+    setEditDate(selectedDate);
+    setEditIsPresent(existing ? existing.is_present : false);
+    setEditNotes(existing?.notes || '');
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEditAttendance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editEmployeeId || !editDate) return;
+    setIsSavingEdit(true);
+
+    const client = getSupabaseClient();
+    if (!client) {
+      setIsSavingEdit(false);
+      return;
+    }
+
+    try {
+      const { error } = await client.from('attendance').upsert(
+        [
+          {
+            employee_id: editEmployeeId,
+            attendance_date: editDate,
+            is_present: editIsPresent,
+            notes: editNotes.trim() || null,
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        { onConflict: 'employee_id,attendance_date' }
+      );
+
+      if (error) throw error;
+      setIsEditOpen(false);
+      await fetchData(selectedDate);
+    } catch (err: any) {
+      alert(`Error saving attendance: ${err.message}`);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const attendanceMap = new Map<string, boolean>();
   attendanceRecords.forEach((r) => attendanceMap.set(r.employee_id, r.is_present));
 
@@ -228,13 +287,20 @@ export const DailyAttendance: React.FC = () => {
                 }`}
               />
             </button>
-            <span className="text-xs font-semibold w-10 text-right">
+            <span className="text-xs font-semibold w-8 text-right">
               {isPresent ? (
                 <span className="text-status-success">ON</span>
               ) : (
                 <span className="text-status-danger">OFF</span>
               )}
             </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openEditModal(row)}
+              title="Edit Attendance & Notes"
+              icon={<Edit2 className="w-4 h-4 text-fg-secondary" />}
+            />
           </div>
         );
       },
@@ -244,26 +310,43 @@ export const DailyAttendance: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-page-title text-fg-primary">Daily Attendance</h1>
           <p className="text-sm text-fg-secondary mt-0.5">
             Idempotent daily presence controls. Repeated clicks never double count.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <PageViewDropdown
+            title="Attendance View"
+            options={[
+              { label: '📅 Daily Attendance', path: '/attendance/daily' },
+              { label: '📆 Monthly Attendance', path: '/attendance/monthly' },
+              { label: '📊 Attendance Reports', path: '/attendance/reports' },
+              { label: '📥 Bulk Import Attendance', path: '/attendance/bulk-import' },
+            ]}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/attendance/bulk-import')}
+            icon={<Upload className="w-4 h-4 text-brand-500" />}
+          >
+            Bulk Import
+          </Button>
           <Input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-44"
+            className="w-40"
           />
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-xl bg-bg-surface border border-border shadow-card">
+        <div className="p-5 rounded-2xl card-3d">
           <div className="flex items-center justify-between text-fg-muted mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Present Today</span>
             <CheckCircle2 className="w-5 h-5 text-status-success" />
@@ -272,7 +355,7 @@ export const DailyAttendance: React.FC = () => {
           <span className="text-xs text-fg-secondary mt-1 block">Staff members marked ON</span>
         </div>
 
-        <div className="p-5 rounded-xl bg-bg-surface border border-border shadow-card">
+        <div className="p-5 rounded-2xl card-3d">
           <div className="flex items-center justify-between text-fg-muted mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Absent / Unmarked</span>
             <XCircle className="w-5 h-5 text-status-danger" />
@@ -281,7 +364,7 @@ export const DailyAttendance: React.FC = () => {
           <span className="text-xs text-fg-secondary mt-1 block">Staff members marked OFF</span>
         </div>
 
-        <div className="p-5 rounded-xl bg-bg-surface border border-border shadow-card">
+        <div className="p-5 rounded-2xl card-3d">
           <div className="flex items-center justify-between text-fg-muted mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Attendance Rate</span>
             <Users className="w-5 h-5 text-brand-500" />
@@ -350,6 +433,103 @@ export const DailyAttendance: React.FC = () => {
         emptyTitle="No Employees Available"
         emptyDescription="Create employees first before taking attendance."
       />
+
+      {/* EDIT ATTENDANCE MODAL */}
+      <Modal
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        title="Edit Attendance Record"
+        maxWidth="md"
+      >
+        <form onSubmit={handleSaveEditAttendance} className="space-y-4 text-sm">
+          <div>
+            <label className="block text-xs font-semibold text-fg-secondary mb-1.5">
+              Employee
+            </label>
+            <Select
+              value={editEmployeeId}
+              onChange={(e) => setEditEmployeeId(e.target.value)}
+              options={employees.map((e) => ({
+                value: e.id,
+                label: `${e.name} (${e.employee_code})`,
+              }))}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-fg-secondary mb-1.5">
+              Attendance Date
+            </label>
+            <Input
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-fg-secondary mb-1.5">
+              Attendance Status
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setEditIsPresent(true)}
+                className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-2 ${
+                  editIsPresent
+                    ? 'bg-status-success/15 border-status-success text-status-success shadow-xs'
+                    : 'bg-bg-secondary border-border text-fg-secondary hover:text-fg-primary'
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                PRESENT
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditIsPresent(false)}
+                className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-2 ${
+                  !editIsPresent
+                    ? 'bg-status-danger/15 border-status-danger text-status-danger shadow-xs'
+                    : 'bg-bg-secondary border-border text-fg-secondary hover:text-fg-primary'
+                }`}
+              >
+                <XCircle className="w-4 h-4" />
+                ABSENT
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-fg-secondary mb-1.5">
+              Notes / Remarks (Optional)
+            </label>
+            <Textarea
+              rows={3}
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              placeholder="e.g., Half day, approved leave, late arrival..."
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSavingEdit}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

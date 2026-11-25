@@ -105,3 +105,136 @@
   border-color: rgba(118, 102, 200, 0.3);
   box-shadow: 0 8px 24px -4px rgba(118, 102, 200, 0.08);
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ==========================================================================
+   3D Realistic UI & Animation System (Mobile & Desktop)
+   ========================================================================== */
+.perspective-800 {
+  perspective: 800px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+/* Realistic 3D Elevated Surface Card */
+.card-3d {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 4px 12px -2px rgba(20, 18, 40, 0.06),
+    0 12px 28px -8px rgba(118, 102, 200, 0.08);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.28s ease;
+  will-change: transform;
+}
+
+.card-3d:hover {
+  transform: perspective(900px) translateY(-3px) rotateX(1.5deg);
+  border-color: rgba(118, 102, 200, 0.35);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
+    0 14px 28px -6px rgba(20, 18, 40, 0.12),
+    0 20px 36px -12px rgba(118, 102, 200, 0.18);
+}
+
+/* Tactile 3D Pressable Button Feel */
+.btn-3d {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.12) inset,
+    0 4px 10px -2px rgba(118, 102, 200, 0.28);
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.15s ease;
+}
+
+.btn-3d:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.12) inset,
+    0 8px 16px -4px rgba(118, 102, 200, 0.38);
+}
+
+.btn-3d:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2) inset,
+    0 2px 4px -1px rgba(118, 102, 200, 0.2);
+}
+
+/* 3D Rotating Cube Keyframes */
+@keyframes spinCube3D {
+  0% {
+    transform: rotateX(-20deg) rotateY(0deg) rotateZ(0deg);
+  }
+  50% {
+    transform: rotateX(20deg) rotateY(180deg) rotateZ(15deg);
+  }
+  100% {
+    transform: rotateX(-20deg) rotateY(360deg) rotateZ(0deg);
+  }
+}
+
+.animate-cube-3d {
+  animation: spinCube3D 3.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  transform-style: preserve-3d;
+}
+
+/* 3D Orbital Ring Keyframes */
+@keyframes orbit3D {
+  0% {
+    transform: rotateX(65deg) rotateY(15deg) rotateZ(0deg);
+  }
+  100% {
+    transform: rotateX(65deg) rotateY(15deg) rotateZ(360deg);
+  }
+}
+
+@keyframes orbit3DReverse {
+  0% {
+    transform: rotateX(-60deg) rotateY(25deg) rotateZ(360deg);
+  }
+  100% {
+    transform: rotateX(-60deg) rotateY(25deg) rotateZ(0deg);
+  }
+}
+
+.animate-orbit-3d {
+  animation: orbit3D 1.8s linear infinite;
+}
+
+.animate-orbit-3d-reverse {
+  animation: orbit3DReverse 2.4s linear infinite;
+}
+
+/* Smooth 3D Float */
+@keyframes float3D {
+  0%, 100% {
+    transform: translateY(0px) rotateX(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotateX(4deg);
+  }
+}
+
+.animate-float-3d {
+  animation: float3D 3s ease-in-out infinite;
+}
+

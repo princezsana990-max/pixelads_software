@@ -32,17 +32,17 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variantClasses = {
       primary:
-        'bg-[#7666C8] hover:bg-[#6655B8] text-white shadow-sm hover:shadow active:scale-[0.98] border border-transparent',
+        'bg-gradient-to-b from-[#8373D6] to-[#6B5BBD] hover:from-[#8E7EE0] hover:to-[#6655B8] text-white btn-3d border border-white/10',
       secondary:
-        'bg-bg-secondary hover:bg-border/60 text-fg-primary border border-border shadow-sm active:scale-[0.98]',
+        'bg-bg-secondary hover:bg-border/60 text-fg-primary border border-border shadow-sm active:translate-y-[1px] active:scale-[0.98]',
       outline:
-        'bg-transparent hover:bg-bg-secondary text-fg-primary border border-border hover:border-brand-500/40 active:scale-[0.98]',
+        'bg-bg-surface/60 hover:bg-bg-secondary text-fg-primary border border-border hover:border-brand-500/40 shadow-xs active:translate-y-[1px] active:scale-[0.98]',
       ghost:
-        'bg-transparent hover:bg-bg-secondary text-fg-secondary hover:text-fg-primary',
+        'bg-transparent hover:bg-bg-secondary text-fg-secondary hover:text-fg-primary active:scale-[0.98]',
       danger:
-        'bg-status-danger hover:opacity-90 text-white shadow-sm active:scale-[0.98] border border-transparent',
+        'bg-gradient-to-b from-status-danger to-red-600 hover:opacity-95 text-white shadow-sm active:translate-y-[1px] active:scale-[0.98] border border-white/10',
       success:
-        'bg-status-success hover:opacity-90 text-white shadow-sm active:scale-[0.98] border border-transparent',
+        'bg-gradient-to-b from-status-success to-emerald-600 hover:opacity-95 text-white shadow-sm active:translate-y-[1px] active:scale-[0.98] border border-white/10',
     };
 
     return (

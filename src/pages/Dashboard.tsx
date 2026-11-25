@@ -41,6 +41,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge';
 import { Tooltip } from '../components/ui/Tooltip';
 import { EmptyState } from '../components/ui/EmptyState';
+import { PageLoadingScreen } from '../components/ui/LoadingAnimation';
 import {
   calculateOrderTakerMetrics,
   calculateEditorMetrics,
@@ -246,6 +247,15 @@ export const Dashboard: React.FC = () => {
       return b.mistakesPer100Orders - a.mistakesPer100Orders || b.pendingOrders - a.pendingOrders;
     })
     .slice(0, 5);
+
+  if (isLoading && orders.length === 0) {
+    return (
+      <PageLoadingScreen
+        message="Loading Operations Dashboard..."
+        submessage="Preparing 3D analytics & live order pipeline"
+      />
+    );
+  }
 
   return (
     <div className="space-y-8">

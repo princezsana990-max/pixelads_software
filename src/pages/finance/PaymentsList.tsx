@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   CreditCard,
   Plus,
@@ -14,6 +15,7 @@ import {
   Users,
   CheckCircle2,
   Printer,
+  Upload,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { getSupabaseClient } from '../../lib/supabase';
@@ -28,6 +30,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Badge } from '../../components/ui/Badge';
 import { exportToExcel } from '../../lib/exportUtils';
 import { useCompanySettings } from '../../context/CompanySettingsContext';
+import { PageViewDropdown } from '../../components/layout/PageViewDropdown';
 
 const PAYMENT_MODES: PaymentMode[] = [
   'Cash',
@@ -38,6 +41,7 @@ const PAYMENT_MODES: PaymentMode[] = [
 ];
 
 export const PaymentsList: React.FC = () => {
+  const navigate = useNavigate();
   const { settings } = useCompanySettings();
 
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -458,14 +462,30 @@ export const PaymentsList: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-page-title text-fg-primary">Payments Management</h1>
           <p className="text-sm text-fg-secondary mt-0.5">
             Record employee disbursements, salaries, bonuses, and payment history.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <PageViewDropdown
+            title="Finance View"
+            options={[
+              { label: '💳 Payments List', path: '/finance/payments' },
+              { label: '📥 Bulk Import Payments', path: '/finance/payments/bulk-import' },
+              { label: '🧾 Invoice History', path: '/finance/invoices' },
+              { label: '➕ Invoice Generator', path: '/finance/invoices/new' },
+            ]}
+          />
+          <Button
+            variant="outline"
+            onClick={() => navigate('/finance/payments/bulk-import')}
+            icon={<Upload className="w-4 h-4 text-brand-500" />}
+          >
+            Bulk Import
+          </Button>
           <Button
             variant="outline"
             onClick={handleExportExcel}
@@ -488,7 +508,7 @@ export const PaymentsList: React.FC = () => {
 
       {/* KPI Cards: Total Paid & Payment Count */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-xl bg-bg-surface border border-border shadow-card">
+        <div className="p-5 rounded-2xl card-3d">
           <div className="flex items-center justify-between text-fg-muted mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Total Disbursed</span>
             <DollarSign className="w-5 h-5 text-brand-500" />
@@ -501,7 +521,7 @@ export const PaymentsList: React.FC = () => {
           </span>
         </div>
 
-        <div className="p-5 rounded-xl bg-bg-surface border border-border shadow-card">
+        <div className="p-5 rounded-2xl card-3d">
           <div className="flex items-center justify-between text-fg-muted mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Payment Count</span>
             <CreditCard className="w-5 h-5 text-status-success" />
@@ -510,7 +530,7 @@ export const PaymentsList: React.FC = () => {
           <span className="text-xs text-fg-secondary mt-1 block">Filtered disbursement records</span>
         </div>
 
-        <div className="p-5 rounded-xl bg-bg-surface border border-border shadow-card">
+        <div className="p-5 rounded-2xl card-3d">
           <div className="flex items-center justify-between text-fg-muted mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Avg Payment</span>
             <Users className="w-5 h-5 text-status-info" />

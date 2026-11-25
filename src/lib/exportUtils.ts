@@ -85,6 +85,110 @@ export function generateLegacyOrderImportTemplate(): void {
 }
 
 // ------------------------------------------------------------------------------
+// 1.1 PAYMENT IMPORT TEMPLATES (OLD FORMAT & STANDARD)
+// ------------------------------------------------------------------------------
+
+export function generateOldPaymentImportTemplate(): void {
+  const headers = [
+    ['DATE', 'NAME', 'AMOUNT', 'STATUS', 'NOTES'],
+    ['2026-11-07', 'MISBAH2', 15000, 'PAID', 'Monthly disbursement'],
+    ['2026-11-08', 'ALI', 8000, 'BANK TRANSFER', 'Advance bonus'],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(headers);
+  ws['!cols'] = [
+    { wch: 14 },
+    { wch: 22 },
+    { wch: 16 },
+    { wch: 18 },
+    { wch: 30 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Payments Old Format');
+  XLSX.writeFile(wb, 'Payments_Old_Format_Template.xlsx');
+}
+
+export function generateStandardPaymentImportTemplate(): void {
+  const headers = [
+    [
+      'Payment Date (YYYY-MM-DD)',
+      'Employee Code or Name',
+      'Amount',
+      'Payment Mode (Cash/Bank Transfer/Easypaisa/JazzCash/Other)',
+      'Category (Salary/Bonus/Advance/Incentive)',
+      'Reference Number',
+      'Notes',
+    ],
+    ['2026-11-07', 'EMP001', 25000, 'Bank Transfer', 'Salary', 'TXN-98432', 'November 2026 Salary'],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(headers);
+  ws['!cols'] = [
+    { wch: 26 },
+    { wch: 24 },
+    { wch: 14 },
+    { wch: 32 },
+    { wch: 24 },
+    { wch: 20 },
+    { wch: 30 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Standard Payments');
+  XLSX.writeFile(wb, 'Payments_Standard_Template.xlsx');
+}
+
+// ------------------------------------------------------------------------------
+// 1.2 ATTENDANCE IMPORT TEMPLATES (OLD FORMAT & STANDARD)
+// ------------------------------------------------------------------------------
+
+export function generateOldAttendanceImportTemplate(): void {
+  const headers = [
+    ['DATE', 'NAME', 'STATUS'],
+    ['2026-11-07', 'MISBAH2', 'PRESENT'],
+    ['2026-11-07', 'ALI', 'ABSENT'],
+    ['2026-11-08', 'MISBAH2', 'PRESENT'],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(headers);
+  ws['!cols'] = [
+    { wch: 14 },
+    { wch: 22 },
+    { wch: 16 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Attendance Old Format');
+  XLSX.writeFile(wb, 'Attendance_Old_Format_Template.xlsx');
+}
+
+export function generateStandardAttendanceImportTemplate(): void {
+  const headers = [
+    [
+      'Attendance Date (YYYY-MM-DD)',
+      'Employee Code or Name',
+      'Status (Present/Absent)',
+      'Notes (Optional)',
+    ],
+    ['2026-11-07', 'EMP001', 'Present', 'On-time'],
+    ['2026-11-07', 'EMP002', 'Absent', 'Approved sick leave'],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(headers);
+  ws['!cols'] = [
+    { wch: 28 },
+    { wch: 24 },
+    { wch: 24 },
+    { wch: 30 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Standard Attendance');
+  XLSX.writeFile(wb, 'Attendance_Standard_Template.xlsx');
+}
+
+// ------------------------------------------------------------------------------
 // 2. EXCEL EXPORT HELPERS
 // ------------------------------------------------------------------------------
 

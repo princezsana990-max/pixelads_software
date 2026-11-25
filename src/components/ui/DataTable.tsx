@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 import { Button } from './Button';
 import { SkeletonTable } from './Skeleton';
 import { EmptyState } from './EmptyState';
+import { LoadingSpinner } from './LoadingAnimation';
 import { twMerge } from 'tailwind-merge';
 
 export interface Column<T> {
@@ -45,7 +46,14 @@ export function DataTable<T>({
   className,
 }: DataTableProps<T>) {
   if (isLoading) {
-    return <SkeletonTable rows={5} columns={columns.length} />;
+    return (
+      <div className="relative w-full rounded-xl border border-border bg-bg-surface overflow-hidden">
+        <SkeletonTable rows={5} columns={columns.length} />
+        <div className="absolute inset-0 bg-bg-surface/50 backdrop-blur-[2px] flex items-center justify-center">
+          <LoadingSpinner size="lg" label="Loading table records..." />
+        </div>
+      </div>
+    );
   }
 
   if (data.length === 0) {
@@ -95,18 +103,27 @@ export function DataTable<T>({
       {/* Pagination Footer */}
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-border bg-bg-surface gap-3 text-xs text-fg-secondary">
-          <div>
+          <div className="flex items-center gap-2">
             {totalRecords !== undefined ? (
               <span>
-                Showing page <strong className="text-fg-primary">{currentPage}</strong> of{' '}
-                <strong className="text-fg-primary">{totalPages}</strong> ({totalRecords} records)
+                Total <strong className="text-fg-primary">{totalRecords}</strong> records
               </span>
-            ) : (
-              <span>
-                Page <strong className="text-fg-primary">{currentPage}</strong> of{' '}
-                <strong className="text-fg-primary">{totalPages}</strong>
-              </span>
-            )}
+            ) : null}
+            <div className="flex items-center gap-1.5 ml-1">
+              <span>Select Page:</span>
+              <select
+                value={currentPage}
+                onChange={(e) => onPageChange && onPageChange(Number(e.target.value))}
+                className="px-2 py-1 bg-bg-secondary border border-border rounded-md text-xs font-semibold text-fg-primary cursor-pointer focus:outline-none focus:ring-1 focus:ring-brand-500"
+                aria-label="Select page"
+              >
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <option key={p} value={p}>
+                    Page {p} of {totalPages}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
