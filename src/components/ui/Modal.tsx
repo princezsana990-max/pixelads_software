@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
@@ -46,7 +47,7 @@ export const Modal: React.FC<ModalProps> = ({
     '4xl': 'max-w-4xl',
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       {/* Backdrop */}
       <div
@@ -58,7 +59,7 @@ export const Modal: React.FC<ModalProps> = ({
       {/* Modal Dialog */}
       <div
         className={twMerge(
-          'relative w-full rounded-2xl bg-bg-surface border border-border shadow-dropdown p-6 z-10 transition-all max-h-[90vh] flex flex-col',
+          'relative w-full rounded-2xl bg-bg-surface border border-border shadow-dropdown p-6 z-10 transition-all max-h-[90vh] flex flex-col animate-fadeIn',
           maxWidthClasses[maxWidth]
         )}
         role="dialog"
@@ -82,6 +83,7 @@ export const Modal: React.FC<ModalProps> = ({
         {/* Scrollable Body */}
         <div className="py-4 overflow-y-auto flex-1">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
